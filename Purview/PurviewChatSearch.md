@@ -4,7 +4,7 @@ A PowerShell script that creates a single Microsoft Purview content search to fi
 
 ## Overview
 
-This script automates the process of searching for chat messages, emails, and other communication data across multiple Microsoft 365 users using Microsoft Purview eDiscovery. Instead of creating individual searches for each user, it creates one comprehensive search that includes all specified users' mailboxes.
+This script automates the process of searching for chat messages, emails, and other communication data across multiple Microsoft 365 users using Microsoft Purview eDiscovery. Instead of creating individual searches for each user, it creates one comprehensive search that includes all specified users' mailboxes from a CSV.
 
 ## What the Script Does
 
@@ -25,7 +25,6 @@ This script automates the process of searching for chat messages, emails, and ot
 
 ### Required Software
 - Windows PowerShell 5.1 or PowerShell 7+
-- Internet connectivity
 - Microsoft 365 tenant with Purview/eDiscovery licensing
 
 ### Required PowerShell Modules
@@ -110,15 +109,15 @@ The script can also recognize these column variations:
 
 | Parameter | Required | Type | Description |
 |-----------|----------|------|-------------|
-| `CsvFilePath` | ✅ | String | Path to CSV file containing user list |
-| `TenantId` | ❌ | String | Azure AD Tenant ID (for service principal auth) |
-| `ClientId` | ❌ | String | Application ID (for service principal auth) |
-| `ClientSecret` | ❌ | String | Client secret (for service principal auth) |
-| `IncludeTeamsChats` | ❌ | Switch | Include Microsoft Teams chat messages |
-| `IncludeYammerMessages` | ❌ | Switch | Include Yammer messages |
-| `IncludeSkypeMessages` | ❌ | Switch | Include Skype for Business messages |
-| `IncludeEmail` | ❌ | Switch | Include email messages |
-| `SearchName` | ❌ | String | Custom name for the search (auto-generated if not provided) |
+| `CsvFilePath` | Yes | String | Path to CSV file containing user list |
+| `TenantId` | No | String | Azure AD Tenant ID (for service principal auth) |
+| `ClientId` | No | String | Application ID (for service principal auth) |
+| `ClientSecret` | No | String | Client secret (for service principal auth) |
+| `IncludeTeamsChats` | No | Switch | Include Microsoft Teams chat messages |
+| `IncludeYammerMessages` | No | Switch | Include Yammer messages |
+| `IncludeSkypeMessages` | No | Switch | Include Skype for Business messages |
+| `IncludeEmail` | No | Switch | Include email messages |
+| `SearchName` | No | String | Custom name for the search (auto-generated if not provided) |
 
 ## Step-by-Step Execution
 
@@ -292,8 +291,6 @@ Warning: Search monitoring timed out
 ### Getting Help
 - Review Microsoft 365 eDiscovery documentation
 - Check the Microsoft 365 Service Health dashboard
-- Contact your IT administrator for permission issues
-- Use Microsoft Support for service-related problems
 
 ## License
 
