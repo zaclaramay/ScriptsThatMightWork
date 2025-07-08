@@ -1,303 +1,289 @@
-# Microsoft Purview Chat History Search Script
-
-A PowerShell script that creates a single Microsoft Purview content search to find chat history across multiple users' mailboxes simultaneously.
+# PurviewChatSearch_60DaysOld.ps1
 
 ## Overview
 
-This script automates the process of searching for chat messages, emails, and other communication data across multiple Microsoft 365 users using Microsoft Purview eDiscovery. Instead of creating individual searches for each user, it creates one comprehensive search that includes all specified users' mailboxes from a CSV.
+This PowerShell script creates a Microsoft Purview compliance search to find Microsoft Teams chats that are older than a specified number of days (default: 60 days). It processes a CSV file containing user information and creates a single bulk search across all specified users' mailboxes.
 
-## What the Script Does
+## Purpose
 
-1. **Connects to Microsoft Services**: Authenticates with Microsoft Graph and Security & Compliance Center
-2. **Processes User List**: Reads a CSV file containing user email addresses and validates them
-3. **Creates Single Search**: Generates one content search that targets all users' mailboxes
-4. **Monitors Progress**: Tracks the search execution and reports status updates
-5. **Provides Results**: Displays search statistics and next steps for data export
-
-## Supported Content Types
-
-- **Microsoft Teams** chat messages and channel conversations
-- **Yammer** messages and posts
-- **Skype for Business** messages
-- **Exchange Email** (optional)
+- **Compliance Management**: Identify old Teams chat data for retention policy enforcement
+- **Data Governance**: Locate Teams chats that may need to be archived or purged
+- **Legal Discovery**: Find historical Teams conversations for eDiscovery purposes
+- **Storage Management**: Identify old chat data that may be consuming storage space
 
 ## Prerequisites
 
-### Required Software
-- Windows PowerShell 5.1 or PowerShell 7+
-- Microsoft 365 tenant with Purview/eDiscovery licensing
-
 ### Required PowerShell Modules
-Install these modules as Administrator:
+The script requires the following PowerShell modules to be installed:
+
 ```powershell
+# Install required modules (run as Administrator)
 Install-Module -Name ExchangeOnlineManagement -Force
 Install-Module -Name Microsoft.Graph.Authentication -Force
 Install-Module -Name Microsoft.Graph.Compliance -Force
 ```
 
 ### Required Permissions
-You need one of these permission setups:
+The account running the script must have:
+- **eDiscovery Manager** role in Microsoft 365 Security & Compliance Center
+- **Global Administrator** or **Compliance Administrator** role (recommended)
+- **Exchange Online Administrator** role (minimum)
 
-#### Option 1: Interactive Authentication (Recommended)
-- **Global Administrator** or **Compliance Administrator** role in Microsoft 365
-- The script will prompt for credentials during execution
+### CSV File Format
+The script expects a CSV file with user information. The CSV must contain one of the following column combinations:
 
-#### Option 2: Service Principal Authentication
-- Azure AD application with these API permissions:
-  - **Microsoft Graph**: `SecurityEvents.Read.All`, `AuditLog.Read.All`, `Directory.Read.All`
-  - **Exchange Online**: `Compliance.ReadWrite`
-
-## CSV File Format
-
-Create a CSV file with the following structure:
-
+**Option 1: Standard Format**
 ```csv
 UserPrincipalName,DisplayName
 john.doe@company.com,John Doe
 jane.smith@company.com,Jane Smith
-bob.jones@company.com,Bob Jones
-mary.wilson@company.com,Mary Wilson
 ```
 
-### Required Columns
-- **UserPrincipalName**: User's email address (required)
-- **DisplayName**: User's display name (optional)
-
-### Alternative Column Names
-The script can also recognize these column variations:
-- `Email` (instead of UserPrincipalName)
-- `UPN` (instead of UserPrincipalName)
-- `Name` (instead of DisplayName)
-
-## Usage
-
-### Basic Usage
-```powershell
-.\PurviewChatSearch.ps1 -CsvFilePath "C:\path\to\users.csv"
+**Option 2: Using Email Column**
+```csv
+Email,DisplayName
+john.doe@company.com,John Doe
+jane.smith@company.com,Jane Smith
 ```
 
-### Specify Content Types
-```powershell
-.\PurviewChatSearch.ps1 -CsvFilePath "C:\users.csv" -IncludeTeamsChats -IncludeEmail
-```
-
-### Use Service Principal Authentication
-```powershell
-.\PurviewChatSearch.ps1 -CsvFilePath "C:\users.csv" -TenantId "your-tenant-id" -ClientId "your-app-id" -ClientSecret "your-client-secret"
-```
-
-### Custom Search Name
-```powershell
-.\PurviewChatSearch.ps1 -CsvFilePath "C:\users.csv" -SearchName "Q1_2024_Investigation"
-```
-
-### All Parameters
-```powershell
-.\PurviewChatSearch.ps1 `
-    -CsvFilePath "C:\investigation\users.csv" `
-    -IncludeTeamsChats `
-    -IncludeYammerMessages `
-    -IncludeSkypeMessages `
-    -IncludeEmail `
-    -SearchName "ComprehensiveSearch_2024" `
-    -TenantId "12345678-1234-1234-1234-123456789012" `
-    -ClientId "87654321-4321-4321-4321-210987654321" `
-    -ClientSecret "your-client-secret"
+**Option 3: Using UPN Column**
+```csv
+UPN,Name
+john.doe@company.com,John Doe
+jane.smith@company.com,Jane Smith
 ```
 
 ## Parameters
 
-| Parameter | Required | Type | Description |
-|-----------|----------|------|-------------|
-| `CsvFilePath` | Yes | String | Path to CSV file containing user list |
-| `TenantId` | No | String | Azure AD Tenant ID (for service principal auth) |
-| `ClientId` | No | String | Application ID (for service principal auth) |
-| `ClientSecret` | No | String | Client secret (for service principal auth) |
-| `IncludeTeamsChats` | No | Switch | Include Microsoft Teams chat messages |
-| `IncludeYammerMessages` | No | Switch | Include Yammer messages |
-| `IncludeSkypeMessages` | No | Switch | Include Skype for Business messages |
-| `IncludeEmail` | No | Switch | Include email messages |
-| `SearchName` | No | String | Custom name for the search (auto-generated if not provided) |
+### Required Parameters
 
-## Step-by-Step Execution
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `CsvFilePath` | String | Path to the CSV file containing user information |
 
-1. **Prepare Your Environment**
-   ```powershell
-   # Run PowerShell as Administrator
-   # Install required modules
-   Install-Module -Name ExchangeOnlineManagement -Force
-   Install-Module -Name Microsoft.Graph.Authentication -Force
-   Install-Module -Name Microsoft.Graph.Compliance -Force
-   ```
+### Optional Parameters
 
-2. **Create Your CSV File**
-   - Use the format shown above
-   - Ensure email addresses are valid
-   - Save with UTF-8 encoding
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `TenantId` | String | None | Azure AD Tenant ID (required for app authentication) |
+| `ClientId` | String | None | Azure AD Application Client ID (for app authentication) |
+| `ClientSecret` | String | None | Azure AD Application Client Secret (for app authentication) |
+| `SearchName` | String | Auto-generated | Custom name for the compliance search |
+| `DaysOld` | Integer | 60 | Number of days old for chat filtering |
 
-3. **Run the Script**
-   ```powershell
-   # Navigate to script directory
-   cd "C:\path\to\script"
-   
-   # Execute the script
-   .\PurviewChatSearch.ps1 -CsvFilePath "C:\path\to\users.csv"
-   ```
+## Usage Examples
 
-4. **Follow Authentication Prompts**
-   - Enter your Microsoft 365 credentials when prompted
-   - Complete any multi-factor authentication requirements
-
-5. **Monitor Progress**
-   - The script will show real-time progress updates
-   - Large searches may take 30 minutes to 2 hours to complete
-
-## Script Output
-
-The script provides detailed output including:
-
-- **Connection Status**: Confirmation of successful authentication
-- **User Validation**: List of valid users loaded from CSV
-- **Search Creation**: Confirmation of search creation with details
-- **Progress Updates**: Real-time status updates during search execution
-- **Final Results**: Summary statistics and next steps
-
-### Example Output
-```
-=== Purview Bulk Chat History Search Script ===
-Started at: 03/15/2024 10:30:00 AM
-
-Required modules loaded successfully
-Connected to Microsoft Graph successfully
-Connected to Security & Compliance Center successfully
-Loaded 25 valid users from CSV
-Valid users to include in search: 25
-
---- Creating bulk search: BulkChatHistorySearch_20240315_103000 ---
-Created content search: BulkChatHistorySearch_20240315_103000
-Started search: BulkChatHistorySearch_20240315_103000
-
-Search status: InProgress - Elapsed: 120s - Items found: 1,247 - Size: 45.2 MB
-Search status: InProgress - Elapsed: 240s - Items found: 2,891 - Size: 112.7 MB
-Search status: Completed - Elapsed: 420s - Items found: 4,156 - Size: 187.3 MB
-
-Search completed successfully!
-
-=== Search Results Summary ===
-Search Name: BulkChatHistorySearch_20240315_103000
-Status: Completed
-Total Items Found: 4,156
-Total Size: 187.3 MB
-Users Searched: 25
-Content Types: Teams Chats, Yammer Messages, Skype Messages
+### Basic Usage (Interactive Authentication)
+```powershell
+# Search for Teams chats older than 60 days using interactive authentication
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "C:\Users\admin\users.csv"
 ```
 
-## After Script Completion
+### Custom Days Old
+```powershell
+# Search for Teams chats older than 90 days
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "C:\Users\admin\users.csv" -DaysOld 90
 
-1. **Access Microsoft Purview Compliance Center**
-   - Go to [https://compliance.microsoft.com](https://compliance.microsoft.com)
-   - Navigate to **Content Search**
+# Search for Teams chats older than 30 days
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "C:\Users\admin\users.csv" -DaysOld 30
+```
 
-2. **Find Your Search**
-   - Look for the search name displayed in the script output
-   - Review search statistics and results
+### With Custom Search Name
+```powershell
+# Use a custom search name for better identification
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "C:\Users\admin\users.csv" -SearchName "Q4_2024_OldTeamsChats"
+```
 
-3. **Create Export (if needed)**
-   - Click on your search
-   - Select **Export results**
-   - Choose export format and options
-   - Download using the Microsoft Office 365 eDiscovery Export Tool
+### Application Authentication (Service Principal)
+```powershell
+# Use service principal authentication for automated scenarios
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "C:\Users\admin\users.csv" `
+    -TenantId "12345678-1234-1234-1234-123456789012" `
+    -ClientId "87654321-4321-4321-4321-210987654321" `
+    -ClientSecret "YourClientSecretHere"
+```
+
+### Complete Example with All Parameters
+```powershell
+# Full parameter usage
+.\PurviewChatSearch_60DaysOld.ps1 `
+    -CsvFilePath "C:\compliance\users_to_search.csv" `
+    -TenantId "12345678-1234-1234-1234-123456789012" `
+    -ClientId "87654321-4321-4321-4321-210987654321" `
+    -ClientSecret "YourClientSecretHere" `
+    -SearchName "Compliance_TeamsChats_OlderThan45Days" `
+    -DaysOld 45
+```
+
+## Authentication Options
+
+### Interactive Authentication (Default)
+If no authentication parameters are provided, the script will prompt for interactive sign-in:
+```powershell
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "users.csv"
+```
+
+### Service Principal Authentication
+For automated scenarios, use application authentication:
+```powershell
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "users.csv" `
+    -TenantId "your-tenant-id" `
+    -ClientId "your-client-id" `
+    -ClientSecret "your-client-secret"
+```
+
+## How It Works
+
+1. **CSV Processing**: Reads and validates the user list from the CSV file
+2. **Authentication**: Connects to Microsoft Graph and Security & Compliance Center
+3. **Date Calculation**: Calculates the cutoff date based on the `DaysOld` parameter
+4. **Search Creation**: Creates a KQL query: `kind:microsoftteams AND sent<YYYY-MM-DD`
+5. **Search Execution**: Starts the compliance search and monitors progress
+6. **Results**: Displays search statistics and next steps
+
+## KQL Query Details
+
+The script generates a KQL (Keyword Query Language) query to find Teams chats:
+
+```kql
+kind:microsoftteams AND sent<2024-05-09
+```
+
+Where:
+- `kind:microsoftteams` - Targets only Microsoft Teams messages
+- `sent<YYYY-MM-DD` - Filters for messages sent before the cutoff date
+
+## Fallback Strategies
+
+The script includes multiple fallback strategies if the primary search fails:
+
+1. **Primary**: `sent<YYYY-MM-DD` format
+2. **Fallback 1**: `sent<MM/DD/YYYY` format
+3. **Fallback 2**: Basic Teams search without date filter (with warning)
+
+## Output and Results
+
+### Console Output
+The script provides detailed console output including:
+- Connection status
+- User validation results
+- Search creation confirmation
+- Real-time search progress
+- Final results summary
+
+### Search Results Summary
+Upon completion, the script displays:
+- Search name and status
+- Total items found
+- Total data size
+- Number of users searched
+- Search criteria used
+- Cutoff date information
+
+## Next Steps After Script Completion
+
+1. **Access Compliance Center**:
+   - Navigate to [Microsoft Purview Compliance Center](https://compliance.microsoft.com)
+   - Go to "Content Search" under "Solutions"
+
+2. **Review Results**:
+   - Find your search by name
+   - Review the search statistics
+   - Examine the results preview
+
+3. **Export Data** (if needed):
+   - Select your search
+   - Click "Export results"
+   - Choose export options
+   - Download the exported data
+
+4. **Take Action**:
+   - Create retention policies
+   - Implement legal holds
+   - Schedule data purging
+
+## Error Handling
+
+The script includes comprehensive error handling:
+- **Module Loading**: Validates required PowerShell modules
+- **CSV Validation**: Checks file existence and format
+- **Authentication**: Handles connection failures
+- **Search Creation**: Attempts multiple fallback strategies
+- **Monitoring**: Tracks search progress with timeout handling
+
+## Performance Considerations
+
+- **Large User Lists**: The script can handle hundreds of users in a single search
+- **Search Timeout**: Maximum wait time is 2 hours for search completion
+- **Progress Monitoring**: Status updates every 2 minutes during search execution
+- **Fallback Options**: Multiple strategies ensure search creation success
+
+## Security Considerations
+
+- **Credentials**: Use service principal authentication for automated scenarios
+- **Permissions**: Follow principle of least privilege
+- **Client Secrets**: Store secrets securely, avoid hardcoding
+- **Audit Trail**: All actions are logged in Microsoft 365 audit logs
 
 ## Troubleshooting
 
 ### Common Issues and Solutions
 
-#### Module Import Errors
-```
-Error: Failed to import required modules
-```
-**Solution**: Install modules as Administrator:
+**Module Import Errors**:
 ```powershell
-Install-Module -Name ExchangeOnlineManagement -Force
-Install-Module -Name Microsoft.Graph.Authentication -Force
-Install-Module -Name Microsoft.Graph.Compliance -Force
+# Run as Administrator
+Install-Module -Name ExchangeOnlineManagement -Force -AllowClobber
 ```
 
-#### Authentication Failures
+**Authentication Failures**:
+- Verify account has required permissions
+- Check if MFA is properly configured
+- Ensure service principal has correct API permissions
+
+**CSV Format Issues**:
+- Verify column names match expected format
+- Check for empty rows or invalid email addresses
+- Ensure UTF-8 encoding without BOM
+
+**Search Creation Failures**:
+- The script includes automatic fallback strategies
+- Check compliance center permissions
+- Verify tenant has appropriate licenses
+
+### Debug Mode
+For additional troubleshooting information, run with PowerShell verbose output:
+```powershell
+.\PurviewChatSearch_60DaysOld.ps1 -CsvFilePath "users.csv" -Verbose
 ```
-Error: Failed to connect to Microsoft Graph
+
+## Sample CSV Files
+
+### Basic Format
+```csv
+UserPrincipalName,DisplayName
+john.doe@company.com,John Doe
+jane.smith@company.com,Jane Smith
+mike.jones@company.com,Mike Jones
 ```
-**Solutions**:
-- Verify you have appropriate permissions
-- Check if MFA is required and complete authentication
-- For service principal auth, verify ClientId, ClientSecret, and TenantId
 
-#### CSV Format Issues
+### Alternative Format
+```csv
+Email,Name
+john.doe@company.com,John Doe
+jane.smith@company.com,Jane Smith
+mike.jones@company.com,Mike Jones
 ```
-Error: Could not find UserPrincipalName column
-```
-**Solutions**:
-- Ensure CSV has `UserPrincipalName` column
-- Use `Email` or `UPN` as alternative column names
-- Check CSV encoding (should be UTF-8)
 
-#### Search Creation Failures
-```
-Error: Failed to create content search
-```
-**Solutions**:
-- Verify users exist in your tenant
-- Check eDiscovery permissions
-- Ensure proper licensing (E3/E5 with Compliance features)
+## License and Support
 
-#### Large Search Timeouts
-```
-Warning: Search monitoring timed out
-```
-**Solutions**:
-- Check search status manually in Compliance Center
-- Large searches (100+ users) may take several hours
-- Consider breaking into smaller batches
-
-## Best Practices
-
-1. **Start Small**: Test with a few users before running large searches
-2. **Use Specific Content Types**: Only include needed content types to improve performance
-3. **Monitor Licensing**: Ensure sufficient eDiscovery licenses for your user count
-4. **Regular Cleanup**: Remove old searches to avoid clutter
-5. **Document Searches**: Use descriptive search names and keep records
-
-## Security Considerations
-
-- **Least Privilege**: Only grant necessary permissions
-- **Audit Trail**: All searches are logged in the Microsoft 365 audit log
-- **Data Handling**: Follow your organization's data retention policies
-- **Access Control**: Limit script access to authorized personnel only
-
-## Support and Limitations
-
-### Script Limitations
-- Maximum 1,000 users per search (Microsoft limitation)
-- Search timeout after 2 hours of monitoring
-- No automatic retry for failed searches
-- Export functionality must be handled manually
-
-### Microsoft 365 Limitations
-- eDiscovery licensing required
-- Some content types may have retention limitations
-- Guest user data may not be searchable
-- Deleted content may not be recoverable
-
-### Getting Help
-- Review Microsoft 365 eDiscovery documentation
-- Check the Microsoft 365 Service Health dashboard
-
-## License
-
-This script is provided as-is for educational and administrative purposes. Ensure compliance with your organization's policies and Microsoft's terms of service when using this script.
+This script is provided as-is for educational and compliance purposes. For production use, thoroughly test in a non-production environment first.
 
 ## Version History
 
-- **v1.0**: Initial release with bulk search functionality
-- **v1.1**: Added enhanced error handling and user validation
-- **v1.2**: Improved CSV parsing and alternative column support
+- **v1.0**: Initial release with Teams chat search functionality
+- **v1.1**: Added date filtering and fallback strategies
+- **v1.2**: Enhanced error handling and user validation
+
+---
+
+**Note**: This script requires appropriate Microsoft 365 licenses and permissions. Always test in a non-production environment before using in production.
