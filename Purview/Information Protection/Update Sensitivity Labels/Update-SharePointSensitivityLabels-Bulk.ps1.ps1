@@ -51,7 +51,6 @@
     # https://contoso.sharepoint.com/sites/Finance,Documents
 
 .NOTES
-    Author: Claude Assistant
     Prerequisites:
     - Azure AD App Registration with metered API billing enabled
     - Permissions: Sites.ReadWrite.All, Files.ReadWrite.All, InformationProtectionPolicy.Read.All
